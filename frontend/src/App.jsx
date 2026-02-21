@@ -130,6 +130,34 @@ export default function App() {
     setMood(3);
   };
 
+  const selectByDate = (ymd) => {
+    if (!ymd) return;
+  
+
+  // entriesが未取得なら、フォームの日付だけ変えて終了
+    if (!Array.isArray(data)) {
+    setEntryId(null);
+    setDate(ymd);
+    return;
+    }
+
+    const found = data.find((e) => e.date === ymd);
+
+    if (found) {
+      // すでに同じentryを表示中なら何もしない
+      if (entryId === found.id && date === found.date) return;
+
+      applyEntryToForm(found);
+      setInfo(`${ymd}の記録を読み込みました（更新モード）`);
+    } else {
+      // その日付の記録がない　-> 新規
+      if (entryId === null && date === ymd) return;
+
+      resetForm(ymd);
+      setInfo(`${ymd}は未作成です（新規作成モード）`);
+    }
+  };
+
   const applyEntryToForm = (e) => {
     setEntryId(e?.id ?? null);
     setDate(e?.date ?? todayYMD());
@@ -183,6 +211,10 @@ export default function App() {
     });
 
     setData(list);
+
+    // entriesを取り直したら、現在フォームの日付に合わせてモードを再判定
+    // （作成/更新後に日付に紐づくentryIdがズレないように）
+    setTimeout(() => selectByDate(date), 0);
 
     const ymd = todayYMD();
     const todayEntry = Array.isArray(list) ? list.find((e) => e.date === ymd) : null;
@@ -269,7 +301,11 @@ export default function App() {
           <div style={{ display: "grid", gap: 8 }}>
             <label>
               日付（YYYY-MM-DD）
-              <input value={date} onChange={(e) => setDate(e.target.value)} style={{ display: "block", width: "100%" }} />
+              <input
+                value={date}
+                onChange={(e) => selectByDate(e.target.value)}
+                style={{ display: "block", width: "100%" }}
+              />
             </label>
 
             <label>
