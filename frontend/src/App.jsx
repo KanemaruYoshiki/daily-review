@@ -300,11 +300,21 @@ export default function App() {
 
           <div style={{ display: "grid", gap: 8 }}>
             <label>
-              日付（YYYY-MM-DD）
+              表示する日付
               <input
+                type="date"
                 value={date}
                 onChange={(e) => selectByDate(e.target.value)}
                 style={{ display: "block", width: "100%" }}
+              />
+            </label>
+
+            <label>
+              日付（YYYY-MM-DD）
+              <input
+                value={date}
+                readOnly
+                style={{ display: "block", width: "100%", background: "#f5f5f5" }}
               />
             </label>
 
