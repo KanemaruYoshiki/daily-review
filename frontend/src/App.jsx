@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const API_BASE = "http://127.0.0.1:8000";
 
+// localStorage keys
+const LS_ACCESS = "dailyReviewAccess";
+const LS_REFRESH = "dailyReviewRefresh";
+
 function todayYMD() {
-  // ローカル日付で YYYY-MM-DD
   const d = new Date();
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -11,33 +14,81 @@ function todayYMD() {
   return `${y}-${m}-${day}`;
 }
 
-async function api(path, { token, method = "GET", body } = {}) {
-  const headers = {};
-  if (body) headers["Content-Type"] = "application/json";
-  if (token) headers["Authorization"] = `Bearer ${token.trim()}`;
-
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-
+async function safeJsonOrText(res) {
   const text = await res.text();
-  let data;
   try {
-    data = text ? JSON.parse(text) : null;
+    return text ? JSON.parse(text) : null;
   } catch {
-    data = text;
+    return text;
+  }
+}
+
+/**
+ * API call with:
+ * - Bearer token
+ * - auto refresh once on 401 (if refresh token exists)
+ */
+async function api(path, { access, refresh, setAccess, setRefresh, method = "GET", body } = {}) {
+  const doFetch = async (token) => {
+    const headers = {};
+    if (body) headers["Content-Type"] = "application/json";
+    if (token) headers["Authorization"] = `Bearer ${token.trim()}`;
+
+    return fetch(`${API_BASE}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  };
+
+  // 1st try with current access
+  let res = await doFetch(access);
+  if (res.status !== 401) {
+    const data = await safeJsonOrText(res);
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${typeof data === "string" ? data.slice(0, 200) : JSON.stringify(data)}`);
+    return data;
   }
 
-  if (!res.ok) {
+  // 401: try refresh once (only if refresh exists)
+  if (!refresh) {
+    const data = await safeJsonOrText(res);
+    throw new Error(`HTTP 401: ${typeof data === "string" ? data.slice(0, 200) : JSON.stringify(data)}`);
+  }
+
+  // refresh token -> new access
+  const refreshRes = await fetch(`${API_BASE}/api/token/refresh/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh: refresh.trim() }),
+  });
+
+  const refreshData = await safeJsonOrText(refreshRes);
+  if (!refreshRes.ok) {
+    // refreshも無効ならログアウト扱いが安全
+    setAccess("");
+    setRefresh("");
+    localStorage.removeItem(LS_ACCESS);
+    localStorage.removeItem(LS_REFRESH);
+
     throw new Error(
-      `HTTP ${res.status}: ${
-        typeof data === "string" ? data.slice(0, 200) : JSON.stringify(data)
+      `Refresh failed (HTTP ${refreshRes.status}): ${
+        typeof refreshData === "string" ? refreshData.slice(0, 200) : JSON.stringify(refreshData)
       }`
     );
   }
-  return data;
+
+  const newAccess = refreshData.access;
+  if (!newAccess) throw new Error("Refresh succeeded but no access token returned.");
+
+  // save new access
+  setAccess(newAccess);
+  localStorage.setItem(LS_ACCESS, newAccess);
+
+  // retry original request with new access
+  res = await doFetch(newAccess);
+  const data2 = await safeJsonOrText(res);
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${typeof data2 === "string" ? data2.slice(0, 200) : JSON.stringify(data2)}`);
+  return data2;
 }
 
 export default function App() {
@@ -45,11 +96,12 @@ export default function App() {
   const [password, setPassword] = useState("");
 
   const [access, setAccess] = useState("");
+  const [refresh, setRefresh] = useState("");
+
   const [data, setData] = useState(null);
   const [err, setErr] = useState("");
   const [info, setInfo] = useState("");
 
-  // 今日のエントリID（あればPATCH、なければPOST）
   const [entryId, setEntryId] = useState(null);
 
   // フォーム
@@ -61,6 +113,12 @@ export default function App() {
   const [mood, setMood] = useState(3);
 
   const isLoggedIn = !!access;
+
+  // 最新トークン参照（コールバックの古い値問題を避ける）
+  const accessRef = useRef(access);
+  const refreshRef = useRef(refresh);
+  useEffect(() => { accessRef.current = access; }, [access]);
+  useEffect(() => { refreshRef.current = refresh; }, [refresh]);
 
   const resetForm = (ymd = todayYMD()) => {
     setEntryId(null);
@@ -82,24 +140,50 @@ export default function App() {
     setMood(e?.mood ?? 3);
   };
 
+  const logout = () => {
+    setAccess("");
+    setRefresh("");
+    localStorage.removeItem(LS_ACCESS);
+    localStorage.removeItem(LS_REFRESH);
+    setInfo("ログアウトしました");
+  };
+
   const login = async () => {
     setErr("");
     setInfo("");
-    const tok = await api("/api/token/", {
+    const res = await fetch(`${API_BASE}/api/token/`, {
       method: "POST",
-      body: { username, password },
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
     });
+
+    const tok = await safeJsonOrText(res);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${typeof tok === "string" ? tok.slice(0, 200) : JSON.stringify(tok)}`);
+    }
+
     setAccess(tok.access);
-    setInfo("ログイン成功");
+    setRefresh(tok.refresh);
+
+    // ★ localStorage に保存（ログイン維持）
+    localStorage.setItem(LS_ACCESS, tok.access);
+    localStorage.setItem(LS_REFRESH, tok.refresh);
+
+    setInfo("ログイン成功（トークン保存済み）");
   };
 
   const loadEntries = async () => {
     setErr("");
     setInfo("");
-    const list = await api("/api/entries/", { token: access });
+    const list = await api("/api/entries/", {
+      access: accessRef.current,
+      refresh: refreshRef.current,
+      setAccess,
+      setRefresh,
+    });
+
     setData(list);
 
-    // 今日の分を探してフォームに反映（無ければ空フォーム）
     const ymd = todayYMD();
     const todayEntry = Array.isArray(list) ? list.find((e) => e.date === ymd) : null;
     if (todayEntry) {
@@ -111,7 +195,18 @@ export default function App() {
     }
   };
 
-  // ログイン後に自動で読み込み
+  // ★ 起動時に localStorage から復元（ログイン維持）
+  useEffect(() => {
+    const savedAccess = localStorage.getItem(LS_ACCESS) || "";
+    const savedRefresh = localStorage.getItem(LS_REFRESH) || "";
+    if (savedAccess && savedRefresh) {
+      setAccess(savedAccess);
+      setRefresh(savedRefresh);
+      setInfo("保存済みトークンで復帰しました");
+    }
+  }, []);
+
+  // ログイン（accessが入った）後に自動ロード
   useEffect(() => {
     if (!access) return;
     loadEntries().catch((e) => setErr(String(e)));
@@ -121,29 +216,30 @@ export default function App() {
   const save = async () => {
     setErr("");
     setInfo("");
-
-    // 入力チェック（最低限）
     if (!date) throw new Error("date が空です");
 
     if (entryId) {
-      // PATCH（今日の分を更新）
       const updated = await api(`/api/entries/${entryId}/`, {
-        token: access,
+        access: accessRef.current,
+        refresh: refreshRef.current,
+        setAccess,
+        setRefresh,
         method: "PATCH",
         body: { title, good, bad, next, mood, date },
       });
       setInfo(`更新しました（id=${updated.id}）`);
     } else {
-      // POST（今日の分を作成）
       const created = await api("/api/entries/", {
-        token: access,
+        access: accessRef.current,
+        refresh: refreshRef.current,
+        setAccess,
+        setRefresh,
         method: "POST",
         body: { date, title, good, bad, next, mood },
       });
       setInfo(`作成しました（id=${created.id}）`);
     }
 
-    // 再取得してフォーム状態も同期
     await loadEntries();
   };
 
@@ -155,26 +251,16 @@ export default function App() {
 
       {!isLoggedIn ? (
         <div style={{ display: "grid", gap: 8, maxWidth: 320 }}>
-          <input
-            placeholder="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-          <input
-            placeholder="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <input placeholder="username" value={username} onChange={(e) => setUsername(e.target.value)} />
+          <input placeholder="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           <button onClick={() => login().catch((e) => setErr(String(e)))}>Login</button>
         </div>
       ) : (
         <>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <button onClick={() => loadEntries().catch((e) => setErr(String(e)))}>
-              Reload
-            </button>
+            <button onClick={() => loadEntries().catch((e) => setErr(String(e)))}>Reload</button>
             <button onClick={() => resetForm(todayYMD())}>今日を新規として書き直す</button>
+            <button onClick={logout}>Logout</button>
             <span style={{ opacity: 0.8 }}>モード: {modeLabel}</span>
           </div>
 
@@ -183,62 +269,32 @@ export default function App() {
           <div style={{ display: "grid", gap: 8 }}>
             <label>
               日付（YYYY-MM-DD）
-              <input
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                style={{ display: "block", width: "100%" }}
-              />
+              <input value={date} onChange={(e) => setDate(e.target.value)} style={{ display: "block", width: "100%" }} />
             </label>
 
             <label>
               タイトル
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                style={{ display: "block", width: "100%" }}
-              />
+              <input value={title} onChange={(e) => setTitle(e.target.value)} style={{ display: "block", width: "100%" }} />
             </label>
 
             <label>
               よかった
-              <textarea
-                value={good}
-                onChange={(e) => setGood(e.target.value)}
-                rows={4}
-                style={{ display: "block", width: "100%" }}
-              />
+              <textarea value={good} onChange={(e) => setGood(e.target.value)} rows={4} style={{ display: "block", width: "100%" }} />
             </label>
 
             <label>
               よくなかった
-              <textarea
-                value={bad}
-                onChange={(e) => setBad(e.target.value)}
-                rows={4}
-                style={{ display: "block", width: "100%" }}
-              />
+              <textarea value={bad} onChange={(e) => setBad(e.target.value)} rows={4} style={{ display: "block", width: "100%" }} />
             </label>
 
             <label>
               次やること
-              <textarea
-                value={next}
-                onChange={(e) => setNext(e.target.value)}
-                rows={3}
-                style={{ display: "block", width: "100%" }}
-              />
+              <textarea value={next} onChange={(e) => setNext(e.target.value)} rows={3} style={{ display: "block", width: "100%" }} />
             </label>
 
             <label>
               気分（1〜5）
-              <input
-                type="number"
-                min={1}
-                max={5}
-                value={mood}
-                onChange={(e) => setMood(Number(e.target.value))}
-                style={{ display: "block", width: 120 }}
-              />
+              <input type="number" min={1} max={5} value={mood} onChange={(e) => setMood(Number(e.target.value))} style={{ display: "block", width: 120 }} />
             </label>
 
             <button onClick={() => save().catch((e) => setErr(String(e)))}>
