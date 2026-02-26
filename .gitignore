@@ -1,15 +1,21 @@
-# Python
-backend/.venv/
-backend/__pycache__/
-*.sqlite3
-*.pyc
-
-# Node
+# ===== frontend =====
 frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
 
-# Env
-.env
+# ===== backend =====
+backend/.venv/
+backend/venv/
+backend/__pycache__/
+backend/**/*.pyc
+backend/db.sqlite3
+backend/.env
+backend/.env.*
+backend/media/
 
-# OS
+# ===== general =====
 .DS_Store
 Thumbs.db
+*.log

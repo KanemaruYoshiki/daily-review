@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 
 // localStorage keys
 const LS_ACCESS = "dailyReviewAccess";
@@ -98,6 +98,21 @@ export default function App() {
 
   const [entryId, setEntryId] = useState(null);
 
+  const [saving, setSaving] = useState(false);
+  const [toasts, setToasts] = useState([]); // {id, type, message}
+
+  const pushToast = (type, message, ms = 2500) => {
+    const id = crypto.randomUUID
+      ? crypto.randomUUID()
+      : String(Date.now() + Math.random());
+
+    setToasts((prev) => [...prev, { id, type, message }]);
+
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, ms);
+  };
+  
   // フォーム
   const [date, setDate] = useState(todayYMD());
   const [title, setTitle] = useState("");
@@ -700,4 +715,5 @@ export default function App() {
       </div>
     </div>
   );
+  
 }
