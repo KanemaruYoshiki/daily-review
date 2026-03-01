@@ -799,13 +799,16 @@ export default function App() {
               </div>
             )}
 
-            {/* Debug */}
-            <div style={styles.card}>
-              <div style={styles.cardInner}>
-                <div style={styles.debugTitle}>entries（デバッグ表示）</div>
-                <pre style={styles.debug}>{JSON.stringify(data, null, 2)}</pre>
+            {/* Debug（DEVのみ表示） */}
+            {import.meta.env.DEV && (
+              <div style={styles.card}>
+                <div style={styles.cardInner}>
+                  <div style={styles.debugTitle}>entries（デバッグ表示）</div>
+                  <pre style={styles.debug}>{JSON.stringify(data, null, 2)}</pre>
+                </div>
               </div>
-            </div>
+            )}
+            
           </div>
         )}
       </div>
