@@ -3,6 +3,12 @@ from .models import Entry
 
 
 class EntrySerializer(serializers.ModelSerializer):
+
+    def validate_mood(self, value):
+        if value < 1 or value > 5:
+            raise serializers.ValidationError("mood must be between 1 and 5.")
+        return value
+
     class Meta:
         model = Entry
         fields = [
