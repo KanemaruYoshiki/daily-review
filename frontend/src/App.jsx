@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Calender from "react-calendar";
+import { Calendar } from "react-calendar";
 import { Rating } from "react-simple-star-rating";
 import "react-calendar/dist/Calendar.css";
 
