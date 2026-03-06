@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Calender from "react-calendar";
+import { Rating } from "react-simple-star-rating";
+import "react-calendar/dist/Calendar.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 
@@ -25,6 +28,18 @@ function addDays(ymd, diff) {
   const mm = String(dt.getMonth() + 1).padStart(2, "0");
   const dd = String(dt.getDate()).padStart(2, "0");
   return `${yy}-${mm}-${dd}`;
+}
+
+function ymdToDate(ymd) {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function dateToYMD(dateObj) {
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const d = String(dateObj.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 async function safeJsonOrText(res) {
@@ -337,6 +352,23 @@ const styles = {
     fontSize: 14,
     fontWeight: 600,
   },
+
+  calendarWrap: {
+    padding: 12,
+    borderRadius: 18,
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(10,14,30,0.38)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+  },
+
+  starWrap: {
+    padding: "10px 12px",
+    borderRadius: 14,
+    border: "1px solid rgba(255,255,255,0.14)",
+    background: "rgba(10,14,30,0.55)",
+    display: "inline-flex",
+    alignItems: "center",
+  },
 };
 
 /* ======================
@@ -637,6 +669,61 @@ export default function App() {
         }
         button:hover { filter: brightness(1.05); }
         ::placeholder { color: rgba(255,255,255,0.45); }
+        .react-calendar {
+          width: 100%;
+          background: transparent;
+          border: none;
+          color: rgba(255,255,255,0.92);
+          font-family: inherit;
+        }
+
+        .react-calendar__navigation button {
+          color: rgba(255,255,255,0.92);
+          min-width: 44px;
+          background: transparent;
+          border-radius: 10px;
+        }
+
+        .react-calendar__navigation button:hover,
+        .react-calendar__navigation button:focus {
+          background: rgba(255,255,255,0.08);
+        }
+
+        .react-calendar__month-view__weekdays {
+          text-align: center;
+          font-size: 12px;
+          opacity: 0.72;
+          text-transform: none;
+        }
+
+        .react-calendar__month-view__weekdays__weekday abbr {
+          text-decoration: none;
+        }
+
+        .react-calendar__tile {
+          background: transparent;
+          color: rgba(255,255,255,0.92);
+          border-radius: 12px;
+          padding: 12px 6px;
+        }
+
+        .react-calendar__tile:hover,
+        .react-calendar__tile:focus {
+          background: rgba(255,255,255,0.08);
+        }
+
+        .react-calendar__tile--active {
+          background: linear-gradient(135deg, rgba(99,102,241,0.8), rgba(16,185,129,0.55)) !important;
+          color: white;
+        }
+
+        .react-calendar__tile--now {
+          background: rgba(255,255,255,0.10);
+        }
+
+        .react-calendar__month-view__days__day--neighboringMonth {
+          opacity: 0.28;
+        }
       `}</style>
 
       <div style={styles.shell}>
@@ -692,42 +779,22 @@ export default function App() {
         ) : (
           <div style={styles.grid}>
             {/* Actions */}
-            <div style={styles.card}>
-              <div style={styles.cardInner}>
+            <div style={styles.cardInner}>
+              <div style={{ display: "grid", gap: 12 }}>
                 <div style={styles.row}>
-                  <button style={{ ...styles.btnBase, ...styles.btnPrimary }} {...withBtnFx()} onClick={() => loadEntries().catch((e) => setErr(String(e)))}>
-                    Reload
-                  </button>
-
-                  <button style={{ ...styles.btnBase, ...styles.btnGhost }} {...withBtnFx()} onClick={() => resetForm(todayYMD())}>
-                    今日を新規として書き直す
-                  </button>
-
-                  <div style={styles.rowRight}>
-                    <button style={{ ...styles.btnBase, ...styles.btnDanger }} {...withBtnFx()} onClick={logout}>
-                      Logout
-                    </button>
-
-                    <span style={{ opacity: 0.75, fontSize: 13 }}>モード: {modeLabel}</span>
-                  </div>
-                </div>
-              </div>
-
-              <hr style={styles.divider} />
-
-              {/* Date Selector */}
-              <div style={styles.cardInner}>
-                <div style={{ ...styles.row, gap: 12 }}>
-                  <button style={{ ...styles.btnBase, ...styles.btnGhost }} {...withBtnFx()} onClick={() => selectByDate(addDays(date, -1))}>
+                  <button
+                    style={{ ...styles.btnBase, ...styles.btnGhost }}
+                    {...withBtnFx()}
+                    onClick={() => selectByDate(addDays(date, -1))}
+                  >
                     ← 前日
                   </button>
 
-                  <div style={{ display: "grid", gap: 6 }}>
-                    <div style={styles.label}>表示する日付</div>
-                    <input type="date" value={date} onChange={(e) => selectByDate(e.target.value)} style={{ ...styles.input, width: 220 }} />
-                  </div>
-
-                  <button style={{ ...styles.btnBase, ...styles.btnGhost }} {...withBtnFx()} onClick={() => selectByDate(addDays(date, 1))}>
+                  <button
+                    style={{ ...styles.btnBase, ...styles.btnGhost }}
+                    {...withBtnFx()}
+                    onClick={() => selectByDate(addDays(date, 1))}
+                  >
                     翌日 →
                   </button>
 
@@ -737,8 +804,28 @@ export default function App() {
                     </span>
                   </div>
                 </div>
+
+                <div style={{ display: "grid", gap: 10 }}>
+                  <div style={styles.label}>表示する日付</div>
+
+                  <div style={styles.calendarWrap}>
+                    <Calendar
+                      onChange={(value) => {
+                        if (value instanceof Date) {
+                          selectByDate(dateToYMD(value));
+                        }
+                      }}
+                      value={ymdToDate(date)}
+                      locale="ja-JP"
+                      calendarType="gregory"
+                      prev2Label={null}
+                      next2Label={null}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
+            
 
             {/* Form */}
             <div style={styles.card}>
@@ -767,7 +854,21 @@ export default function App() {
                   <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                     <div style={{ display: "grid", gap: 6 }}>
                       <div style={styles.label}>気分（1〜5）</div>
-                      <input type="number" min={1} max={5} value={mood} onChange={(e) => setMood(Number(e.target.value))} style={{ ...styles.input, width: 120 }} />
+
+                      <div style={styles.starWrap}>
+                        <Rating
+                          initialValue={mood}
+                          allowFraction={false}
+                          transition
+                          size={32}
+                          onClick={(value) => setMood(value)}
+                          SVGstyle={{ display: "inline-block" }}
+                        />
+                      </div>
+
+                      <div style={{ fontSize: 13, opacity: 0.75 }}>
+                        現在の気分: {mood} / 5
+                      </div>
                     </div>
 
                     <div style={{ marginLeft: "auto" }}>
