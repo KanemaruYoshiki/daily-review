@@ -729,6 +729,19 @@ export default function App() {
         .react-calendar__month-view__days__day--neighboringMonth {
           opacity: 0.28;
         }
+
+        .calendar-today {
+          background: linear-gradient(
+            135deg,
+            rgba(99, 102, 241, 0.32),
+            rgba(16, 185, 129, 0.18)
+          ) !important;
+          border: 1px solid rgba(99, 102, 241, 0.55) !important;
+          box-shadow:
+            0 0 0 1px rgba(81, 3, 3, 0.05),
+            0 0 14px rgba(99, 102, 241, 0.28);
+          font-weight: 800;
+        }
       `}</style>
 
       <div style={styles.shell}>
@@ -825,10 +838,22 @@ export default function App() {
                       calendarType="gregory"
                       prev2Label={null}
                       next2Label={null}
-                      tileContent={({ date, view }) => {
+                      tileClassName={({ date: tileDate, view }) => {
                         if (view !== "month") return null;
 
-                        const ymd = dateToYMD(date);
+                        const ymd = dateToYMD(tileDate);
+                        const today = todayYMD();
+
+                        if (ymd === today) {
+                          return "calendar-today";
+                        }
+
+                        return null;
+                      }}
+                      tileContent={({ date: tileDate, view }) => {
+                        if (view !== "month") return null;
+
+                        const ymd = dateToYMD(tileDate);
 
                         if (entryDateSet.has(ymd)) {
                           return (
@@ -845,7 +870,7 @@ export default function App() {
                                   height: 6,
                                   borderRadius: "50%",
                                   background: "rgba(16,185,129,0.95)",
-                                  boxShadow: "0 0 6px rgba(16,185,129,0.8)",
+                                  boxShadow: "0 0 6px rgba(16,185,129,0.75)",
                                 }}
                               />
                             </div>
