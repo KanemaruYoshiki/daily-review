@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Calendar } from "react-calendar";
+import Calendar from "react-calendar";
 import { Rating } from "react-simple-star-rating";
 import "react-calendar/dist/Calendar.css";
 
@@ -658,6 +658,11 @@ export default function App() {
     }
   }, [bad, date, entryId, good, loadEntries, mood, next, pushToast, saving, title]);
 
+  const entryDateSet = useMemo(() => {
+    if (!Array.isArray(data)) return new Set();
+    return new Set(data.map((e) => e.date));
+  }, [data]);
+
   return (
     <div style={styles.page}>
       {/* global css */}
@@ -820,6 +825,35 @@ export default function App() {
                       calendarType="gregory"
                       prev2Label={null}
                       next2Label={null}
+                      tileContent={({ date, view }) => {
+                        if (view !== "month") return null;
+
+                        const ymd = dateToYMD(date);
+
+                        if (entryDateSet.has(ymd)) {
+                          return (
+                            <div
+                              style={{
+                                marginTop: 2,
+                                display: "flex",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: 6,
+                                  height: 6,
+                                  borderRadius: "50%",
+                                  background: "rgba(16,185,129,0.95)",
+                                  boxShadow: "0 0 6px rgba(16,185,129,0.8)",
+                                }}
+                              />
+                            </div>
+                          );
+                        }
+
+                        return null;
+                      }}
                     />
                   </div>
                 </div>
