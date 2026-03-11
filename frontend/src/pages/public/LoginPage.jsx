@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 
 const styles = {
   page: {
@@ -91,10 +90,6 @@ const styles = {
     whiteSpace: "pre-wrap",
     lineHeight: 1.6,
   },
-  success: {
-    background: "rgba(16,185,129,0.12)",
-    border: "1px solid rgba(16,185,129,0.28)",
-  },
   error: {
     background: "rgba(239,68,68,0.12)",
     border: "1px solid rgba(239,68,68,0.28)",
@@ -102,80 +97,36 @@ const styles = {
   },
 };
 
-export default function SignupPage() {
+export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
 
   const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [passwordConfirm, setPasswordConfirm] = useState("");
-
-  const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
-  const [info, setInfo] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  async function handleSignup(e) {
+  const redirectTo = location.state?.from?.pathname || "/app";
+
+  async function handleLogin(e) {
     e.preventDefault();
     setErr("");
-    setInfo("");
 
     if (!username.trim()) {
       setErr("ユーザー名を入力してください。");
       return;
     }
 
-    if (!email.trim()) {
-      setErr("メールアドレスを入力してください。");
-      return;
-    }
-
-    if (password.length < 8) {
-      setErr("パスワードは8文字以上にしてください。");
-      return;
-    }
-
-    if (password !== passwordConfirm) {
-      setErr("パスワード確認が一致しません。");
+    if (!password) {
+      setErr("パスワードを入力してください。");
       return;
     }
 
     try {
       setLoading(true);
-
-      const res = await fetch(`${API_BASE}/api/auth/register/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username,
-          email,
-          password,
-          password_confirm: passwordConfirm,
-        }),
-      });
-
-      const text = await res.text();
-      let data;
-      try {
-        data = text ? JSON.parse(text) : null;
-      } catch {
-        data = text;
-      }
-
-      if (!res.ok) {
-        const message =
-          typeof data === "string"
-            ? data
-            : data?.detail || JSON.stringify(data);
-        throw new Error(message || "登録に失敗しました。");
-      }
-
-      setInfo("登録が完了しました。ログイン画面へ移動します。");
-
-      setTimeout(() => {
-        navigate("/login");
-      }, 800);
+      await login({ username, password });
+      navigate(redirectTo, { replace: true });
     } catch (e) {
       setErr(String(e.message || e));
     } finally {
@@ -188,13 +139,13 @@ export default function SignupPage() {
       <div style={styles.shell}>
         <div style={styles.card}>
           <div style={{ display: "grid", gap: 8 }}>
-            <h1 style={styles.title}>新規登録</h1>
+            <h1 style={styles.title}>ログイン</h1>
             <p style={styles.sub}>
-              Daily Review を使い始めるためのアカウントを作成します。
+              Daily Review にログインして、日々の記録を続けましょう。
             </p>
           </div>
 
-          <form onSubmit={handleSignup} style={{ display: "grid", gap: 14 }}>
+          <form onSubmit={handleLogin} style={{ display: "grid", gap: 14 }}>
             <div style={styles.field}>
               <label style={styles.label}>ユーザー名</label>
               <input
@@ -206,45 +157,17 @@ export default function SignupPage() {
             </div>
 
             <div style={styles.field}>
-              <label style={styles.label}>メールアドレス</label>
-              <input
-                style={styles.input}
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="example@example.com"
-              />
-            </div>
-
-            <div style={styles.field}>
               <label style={styles.label}>パスワード</label>
               <input
                 style={styles.input}
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="8文字以上"
+                placeholder="パスワード"
               />
             </div>
 
-            <div style={styles.field}>
-              <label style={styles.label}>パスワード確認</label>
-              <input
-                style={styles.input}
-                type="password"
-                value={passwordConfirm}
-                onChange={(e) => setPasswordConfirm(e.target.value)}
-                placeholder="もう一度入力"
-              />
-            </div>
-
-            {info && (
-              <div style={{ ...styles.message, ...styles.success }}>{info}</div>
-            )}
-
-            {err && (
-              <div style={{ ...styles.message, ...styles.error }}>{err}</div>
-            )}
+            {err && <div style={{ ...styles.message, ...styles.error }}>{err}</div>}
 
             <button
               type="submit"
@@ -255,7 +178,7 @@ export default function SignupPage() {
                 opacity: loading ? 0.7 : 1,
               }}
             >
-              {loading ? "登録中..." : "アカウントを作成"}
+              {loading ? "ログイン中..." : "ログイン"}
             </button>
           </form>
 
@@ -263,8 +186,8 @@ export default function SignupPage() {
             <Link to="/" style={{ ...styles.btn, ...styles.btnGhost }}>
               LPへ戻る
             </Link>
-            <Link to="/app" style={{ ...styles.btn, ...styles.btnGhost }}>
-              アプリへ
+            <Link to="/signup" style={{ ...styles.btn, ...styles.btnGhost }}>
+              新規登録
             </Link>
           </div>
         </div>

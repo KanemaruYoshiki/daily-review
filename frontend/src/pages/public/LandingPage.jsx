@@ -127,6 +127,9 @@ export default function LandingPage() {
             <Link to="/pricing" style={{ ...styles.btn, ...styles.btnGhost }}>
               料金
             </Link>
+            <Link to="/login" style={{ ...styles.btn, ...styles.btnGhost }}>
+              ログイン
+            </Link>
             <Link to="/signup" style={{ ...styles.btn, ...styles.btnPrimary }}>
               無料登録
             </Link>
