@@ -127,9 +127,10 @@ export default function LandingPage() {
             <Link to="/pricing" style={{ ...styles.btn, ...styles.btnGhost }}>
               料金
             </Link>
-            <Link to="/app" style={{ ...styles.btn, ...styles.btnPrimary }}>
-              アプリを開く
+            <Link to="/signup" style={{ ...styles.btn, ...styles.btnPrimary }}>
+              無料登録
             </Link>
+
           </div>
         </nav>
 
@@ -145,8 +146,8 @@ export default function LandingPage() {
           </p>
 
           <div style={styles.buttonRow}>
-            <Link to="/app" style={{ ...styles.btn, ...styles.btnPrimary }}>
-              無料で使う
+            <Link to="/signup" style={{ ...styles.btn, ...styles.btnPrimary }}>
+              無料で始める
             </Link>
             <Link to="/pricing" style={{ ...styles.btn, ...styles.btnGhost }}>
               料金を見る

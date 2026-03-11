@@ -1,14 +1,9 @@
+from django.contrib.auth.models import User
 from rest_framework import serializers
 from .models import Entry
 
 
 class EntrySerializer(serializers.ModelSerializer):
-
-    def validate_mood(self, value):
-        if value < 1 or value > 5:
-            raise serializers.ValidationError("mood must be between 1 and 5.")
-        return value
-
     class Meta:
         model = Entry
         fields = [
@@ -47,3 +42,42 @@ class EntrySerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"date": "This date already has an entry."})
 
         return attrs
+
+
+class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+    password_confirm = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = User
+        fields = ["username", "email", "password", "password_confirm"]
+
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("このユーザー名は既に使われています。")
+        return value
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("このメールアドレスは既に使われています。")
+        return value
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs["password_confirm"]:
+            raise serializers.ValidationError(
+                {"password_confirm": "パスワード確認が一致しません。"}
+            )
+        return attrs
+
+    def create(self, validated_data):
+        validated_data.pop("password_confirm")
+        password = validated_data.pop("password")
+
+        user = User(
+            username=validated_data["username"],
+            email=validated_data["email"],
+        )
+        user.set_password(password)
+        user.save()
+
+        return user
