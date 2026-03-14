@@ -2,19 +2,34 @@ import { useMemo } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useEntries } from "../../hooks/useEntries";
 import { useToasts } from "../../hooks/useToasts";
+import { useDashboardSummary } from "../../hooks/useDashboardSummary";
 import LoginCard from "../../components/auth/LoginCard";
 import ReviewCalendar from "../../components/calendar/ReviewCalendar";
 import EntryForm from "../../components/forms/EntryForm";
+import SummaryCards from "../../components/dashboard/SummaryCards";
 import { addDays } from "../../utils/date";
 import { styles, withBtnFx } from "../../styles/appStyles"
 
 export default function DashboardPage() {
+  
   const {
     data, err, info, saving, entryId, date,
     title, good, bad, next, mood,
     setTitle, setGood, setBad, setNext, setMood,
     setErr, selectByDate, save, entryDateSet,
   } = useEntries(pushToast);
+
+  const {
+    summary,
+    loading: summaryLoading,
+    error: summaryError,
+    loadSummary,
+  } = useDashboardSummary();
+
+  async function handleSave() {
+    await save();
+    await loadSummary();
+  }
 
   const modeLabel = useMemo(() => (entryId ? "更新 (PATCH)" : "新規 (POST)"), [entryId]);
 
@@ -24,6 +39,12 @@ export default function DashboardPage() {
 
   return (
     <div style={styles.grid}>
+      <SummaryCards
+        summary={summary}
+        loading={summaryLoading}
+        error={summaryError}
+        styles={styles}
+      />
       <div style={styles.cardInner}>
         <div style={{ display: "grid", gap: 12 }}>
           <div style={styles.row}>
@@ -57,7 +78,7 @@ export default function DashboardPage() {
         setBad={setBad}
         setNext={setNext}
         setMood={setMood}
-        save={save}
+        save={handleSave}
         saving={saving}
         modeLabel={modeLabel}
       />
